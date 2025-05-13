@@ -183,6 +183,10 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 """
+caps_on = False  # Global state for CAPS
+type_action = False  # To avoid double triggering
+# use global variable for caps_on to keep track of the state
+# Main loop
 while True:
     success, img = cap.read()
     img = cv2.flip(img, 1)
@@ -224,13 +228,12 @@ while True:
 
                 # Check for tap gesture (index and middle finger close together)
                 distance = hypot(x2 - x1, y2 - y1)
-                if distance < 45:
+                
+                
+                if distance < 45 and not type_action:
                     key_pressed = button.text
                     # Global state flags for CAPS and SHIFT
-                    global caps_on
-                    global shift_on
-                    caps_on = False
-                    shift_on = False
+                    
                     
                     # Handle special keys
                     if key_pressed == "SPACE":
@@ -254,15 +257,17 @@ while True:
                     elif key_pressed == "CAPS":
                         caps_on = not caps_on  # Toggle CAPS state
                         print(f"CAPS {'ON' if caps_on else 'OFF'}")
+                        sleep(0.4)  # slight delay to avoid rapid multiple presses
                     elif key_pressed == "SHIFT":
-                        shift_on = True  # Enable SHIFT state (will reset after one key)
+                        #shift_on = True  # Enable SHIFT state (will reset after one key)
                         print("SHIFT pressed")
+                        
                     else:
                         if len(key_pressed) == 1:
                         # Apply CAPS and SHIFT states
                             char_to_type = key_pressed
                             if char_to_type.isalpha():
-                                if caps_on or shift_on:
+                                if caps_on:
                                     char_to_type = char_to_type.upper()
                                 else:
                                     char_to_type = char_to_type.lower()
@@ -270,11 +275,10 @@ while True:
                             keyboard.press(char_to_type)
                             finalText += char_to_type
                             print(f"Typed: {char_to_type}")
-
-        # Reset SHIFT after one key press
-                            if shift_on:
-                                shift_on = False
-
+                    type_action = True  # Mark that a key was pressed
+                elif distance >= 45: # Reset type action when fingers are apart
+                    # Reset type action flag
+                    type_action = False 
 
                     # Draw button green when pressed
                     cv2.rectangle(canvas, button.pos, (x + w, y + h),
