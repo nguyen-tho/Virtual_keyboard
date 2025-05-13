@@ -5,6 +5,7 @@ import numpy as np
 import cvzone
 from pynput.keyboard import Controller
 from pynput.keyboard import Key
+from math import hypot
 
 
 # Webcam settings
@@ -103,7 +104,8 @@ def drawAll(img, buttonList):
 
     return img
 
-
+    
+"""
 # Main loop
 while True:
     success, img = cap.read()
@@ -158,7 +160,7 @@ while True:
                 else:
                     if len(key_pressed) == 1:
                         keyboard.press(key_pressed)
-                        finalText += key_pressed
+                        finalText += key_pressed.lower()
                         print(key_pressed)
 
             # Draw button green when clicked
@@ -172,6 +174,119 @@ while True:
     # Draw text box for typed characters
     cv2.rectangle(img, (50, 650), (1280, 720), (175, 0, 175), cv2.FILLED)
     cv2.putText(img, finalText, (60, 700),
+                cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+
+    cv2.imshow("Virtual Keyboard", canvas)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+"""
+while True:
+    success, img = cap.read()
+    img = cv2.flip(img, 1)
+    
+    # Create bigger canvas
+    canvas = np.zeros((1080, 1920, 3), dtype=np.uint8)
+
+# Paste camera frame into canvas
+    canvas[0:img.shape[0], 0:img.shape[1]] = img
+
+# Draw your keyboard on canvas now
+    canvas = drawAll(canvas, buttonList)
+    hands, canvas = detector.findHands(img)
+
+    canvas = drawAll(canvas, buttonList)
+
+    if hands:
+        hand = hands[0]
+        lmList = hand["lmList"]
+
+        # Get fingertip positions
+        x1, y1 = lmList[8][0], lmList[8][1]  # Index fingertip
+        x2, y2 = lmList[12][0], lmList[12][1]  # Middle fingertip
+
+        for button in buttonList:
+            x, y = button.pos
+            w, h = button.size
+
+            # Check if index fingertip is hovering over button
+            if x < x1 < x + w and y < y1 < y + h:
+                # Highlight key on hover
+                cv2.rectangle(canvas, (x - 5, y - 5), (x + w + 5, y + h + 5),
+                              (175, 0, 175), cv2.FILLED)
+                cv2.putText(canvas, button.text, (x + 15, y + 60),
+                            cv2.FONT_HERSHEY_PLAIN, 2.5, (255, 255, 255), 3)
+
+                # Draw touch point
+                cv2.circle(canvas, (x1, y1), 20, (0, 255, 0), cv2.FILLED)
+
+                # Check for tap gesture (index and middle finger close together)
+                distance = hypot(x2 - x1, y2 - y1)
+                if distance < 45:
+                    key_pressed = button.text
+                    # Global state flags for CAPS and SHIFT
+                    global caps_on
+                    global shift_on
+                    caps_on = False
+                    shift_on = False
+                    
+                    # Handle special keys
+                    if key_pressed == "SPACE":
+                        keyboard.press(Key.space)
+                        print("SPACE pressed")
+                        finalText += " "
+                    elif key_pressed == "ENTER":
+                        keyboard.press(Key.enter)
+                        print("ENTER pressed")
+                        finalText += "\n"
+                    elif key_pressed == "TAB":
+                        keyboard.press(Key.tab)
+                        print("TAB pressed")
+                        finalText += "    "
+                    elif key_pressed == "DEL":
+                        keyboard.press(Key.backspace)
+                        print("DEL pressed")
+                        finalText = finalText[:-1]
+                    elif key_pressed == "ESC":
+                        keyboard.press(Key.esc)
+                    elif key_pressed == "CAPS":
+                        caps_on = not caps_on  # Toggle CAPS state
+                        print(f"CAPS {'ON' if caps_on else 'OFF'}")
+                    elif key_pressed == "SHIFT":
+                        shift_on = True  # Enable SHIFT state (will reset after one key)
+                        print("SHIFT pressed")
+                    else:
+                        if len(key_pressed) == 1:
+                        # Apply CAPS and SHIFT states
+                            char_to_type = key_pressed
+                            if char_to_type.isalpha():
+                                if caps_on or shift_on:
+                                    char_to_type = char_to_type.upper()
+                                else:
+                                    char_to_type = char_to_type.lower()
+
+                            keyboard.press(char_to_type)
+                            finalText += char_to_type
+                            print(f"Typed: {char_to_type}")
+
+        # Reset SHIFT after one key press
+                            if shift_on:
+                                shift_on = False
+
+
+                    # Draw button green when pressed
+                    cv2.rectangle(canvas, button.pos, (x + w, y + h),
+                                  (0, 255, 0), cv2.FILLED)
+                    cv2.putText(canvas, button.text, (x + 15, y + 60),
+                                cv2.FONT_HERSHEY_PLAIN, 2.5, (255, 255, 255), 3)
+
+                    sleep(0.4)  # slight delay to avoid rapid multiple presses
+
+    # Draw text box for typed characters
+    cv2.rectangle(canvas, (50, 650), (1280, 720), (175, 0, 175), cv2.FILLED)
+    cv2.putText(canvas, finalText, (60, 700),
                 cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
 
     cv2.imshow("Virtual Keyboard", canvas)
