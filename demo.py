@@ -37,7 +37,7 @@ keyboard = Controller()
 
 # Button class
 class Button():
-    def __init__(self, pos, text, size=[85, 85]):
+    def __init__(self, pos, text, size=[60, 60]):
         self.pos = pos
         self.size = size
         self.text = text
@@ -47,10 +47,10 @@ class Button():
 # Horizontal offset between keys
 # Vertical offset between rows
 buttonList = []
-startY = 0
+startY = 10
 
 for i in range(len(keys)):
-    startX = 0
+    startX = 10
     for key in keys[i]:
         if key == "SPACE":
             size = [250, 60]
@@ -194,23 +194,60 @@ cv2.destroyAllWindows()
 
 type_action = False  # To avoid double triggering
 # use global variable for caps_on to keep track of the state
-# Main loop
-while True:
-    success, img = cap.read()
-    img = cv2.flip(img, 1)
+
+# Function to handle special keys
+# This function handles the special keys like SPACE, ENTER, TAB, DEL, ESC, and CAPS
+def handle_special_key(key_pressed, keyboard, finalText, caps_on):
+    def press_space():
+        keyboard.press(Key.space)
+        print("SPACE pressed")
+        return finalText + " ", caps_on
+
+    def press_enter():
+        keyboard.press(Key.enter)
+        print("ENTER pressed")
+        return finalText + "\n", caps_on
+
+    def press_tab():
+        keyboard.press(Key.tab)
+        print("TAB pressed")
+        return finalText + "    ", caps_on
+
+    def press_del():
+        keyboard.press(Key.backspace)
+        print("DEL pressed")
+        return finalText[:-1], caps_on
+
+    def press_esc():
+        keyboard.press(Key.esc)
+        return finalText, caps_on
+
+    def toggle_caps():
+        new_caps = not caps_on
+        print(f"CAPS {'ON' if new_caps else 'OFF'}")
+        sleep(0.4)
+        return finalText, new_caps
+
+    # Map key text to their actions
+    special_key_actions = {
+        "SPACE": press_space,
+        "ENTER": press_enter,
+        "TAB": press_tab,
+        "DEL": press_del,
+        "ESC": press_esc,
+        "CAPS": toggle_caps,
+    }
+
+    # Execute if key_pressed is in special keys
+    if key_pressed in special_key_actions:
+        return special_key_actions[key_pressed]()
     
-    # Create bigger canvas
-    canvas = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    # If not a special key, return unchanged values
+    return finalText, caps_on
 
-# Paste camera frame into canvas
-    canvas[0:img.shape[0], 0:img.shape[1]] = img
-
-# Draw your keyboard on canvas now
-    canvas = drawAll(canvas, buttonList)
-    hands, canvas = detector.findHands(img)
-
-    canvas = drawAll(canvas, buttonList)
-
+# Function to process hand input
+# This function processes the hand input and checks if the index finger is hovering over a button
+def process_hand_input(hands, canvas, buttonList, keyboard, caps_on, type_action, finalText, distance_comp=40):
     if hands:
         hand = hands[0]
         lmList = hand["lmList"]
@@ -236,65 +273,55 @@ while True:
 
                 # Check for tap gesture (index and middle finger close together)
                 distance = hypot(x2 - x1, y2 - y1)
-                
-                
-                if distance < 45 and not type_action:
+
+                if distance < distance_comp and not type_action:
                     key_pressed = button.text
-                    # Global state flags for CAPS and SHIFT
-                    
-                    
+
                     # Handle special keys
-                    if key_pressed == "SPACE":
-                        keyboard.press(Key.space)
-                        print("SPACE pressed")
-                        finalText += " "
-                    elif key_pressed == "ENTER":
-                        keyboard.press(Key.enter)
-                        print("ENTER pressed")
-                        finalText += "\n"
-                    elif key_pressed == "TAB":
-                        keyboard.press(Key.tab)
-                        print("TAB pressed")
-                        finalText += "    "
-                    elif key_pressed == "DEL":
-                        keyboard.press(Key.backspace)
-                        print("DEL pressed")
-                        finalText = finalText[:-1]
-                    elif key_pressed == "ESC":
-                        keyboard.press(Key.esc)
-                    elif key_pressed == "CAPS":
-                        caps_on = not caps_on  # Toggle CAPS state
-                        print(f"CAPS {'ON' if caps_on else 'OFF'}")
-                        sleep(0.4)  # slight delay to avoid rapid multiple presses
-                    elif key_pressed == "SHIFT":
-                        #shift_on = True  # Enable SHIFT state (will reset after one key)
-                        print("SHIFT pressed")
-                        
+                    if key_pressed in ["SPACE", "ENTER", "TAB", "DEL", "ESC", "CAPS"]:
+                        finalText, caps_on = handle_special_key(key_pressed, keyboard, finalText, caps_on)
                     else:
                         if len(key_pressed) == 1:
-                        # Apply CAPS and SHIFT states
                             char_to_type = key_pressed
                             if char_to_type.isalpha():
-                                if caps_on:
-                                    char_to_type = char_to_type.upper()
-                                else:
-                                    char_to_type = char_to_type.lower()
-
+                                char_to_type = char_to_type.upper() if caps_on else char_to_type.lower()
                             keyboard.press(char_to_type)
                             finalText += char_to_type
                             print(f"Typed: {char_to_type}")
-                    type_action = True  # Mark that a key was pressed
-                elif distance >= 45: # Reset type action when fingers are apart
-                    # Reset type action flag
-                    type_action = False 
 
+                    type_action = True
+
+                elif distance >= distance_comp:
+                    type_action = False
                     # Draw button green when pressed
                     cv2.rectangle(canvas, button.pos, (x + w, y + h),
                                   (0, 255, 0), cv2.FILLED)
                     cv2.putText(canvas, button.text, (x + 15, y + 60),
                                 cv2.FONT_HERSHEY_PLAIN, 2.5, (255, 255, 255), 3)
 
-                    sleep(0.4)  # slight delay to avoid rapid multiple presses
+                    sleep(0.4)
+    return canvas, caps_on, type_action, finalText
+
+# Main loop
+
+while True:
+    success, img = cap.read()
+    img = cv2.flip(img, 1)
+    
+    # Create bigger canvas
+    canvas = np.zeros((1080, 1920, 3), dtype=np.uint8)
+
+# Paste camera frame into canvas
+    canvas[0:img.shape[0], 0:img.shape[1]] = img
+
+# Draw your keyboard on canvas now
+    #canvas = drawAll(canvas, buttonList)
+    hands, canvas = detector.findHands(img)
+
+    canvas = drawAll(canvas, buttonList)
+
+    canvas, caps_on, type_action, finalText = process_hand_input(
+    hands, canvas, buttonList, keyboard, caps_on, type_action, finalText)
 
     # Draw text box for typed characters
     #cv2.rectangle(canvas, (50, 650), (1280, 720), (175, 0, 175), cv2.FILLED)
@@ -302,8 +329,10 @@ while True:
     #           cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
 
     cv2.imshow("Virtual Keyboard", canvas)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'): # Press 'q' to exit
         break
 
 cap.release()
+os.system("taskkill /im notepad.exe /f") # Close Notepad
+# Close all OpenCV windows
 cv2.destroyAllWindows()
