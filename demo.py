@@ -6,7 +6,9 @@ import cvzone
 from pynput.keyboard import Controller
 from pynput.keyboard import Key
 from math import hypot
-
+import os
+# Start Notepad
+os.system("start notepad.exe")
 
 # Webcam settings
 cap = cv2.VideoCapture(0)
@@ -15,10 +17,9 @@ cap.set(4, 720)
 
 width = cap.get(3)
 height = cap.get(4)
-print(f"Actual camera resolution: {width} x {height}")
 # Hand Detector
 detector = HandDetector(detectionCon=0.8)
-
+caps_on = False  # Global state for CAPS
 
 # Virtual Keyboard layout (Keychron K6-like)
 keys = [
@@ -81,13 +82,19 @@ def drawAll(img, buttonList):
         x, y = button.pos
         w, h = button.size
 
+        # If this is the CAPS button and caps_on is True, change color
+        if button.text == "CAPS" and caps_on:
+            button_color = (0, 255, 0)  # Green if CAPS is active
+        else:
+            button_color = (255, 0, 255)  # Regular purple
+
         # Draw button box
         cvzone.cornerRect(img, (x, y, w, h), 20, rt=0)
-        cv2.rectangle(img, button.pos, (x + w, y + h), (255, 0, 255), cv2.FILLED)
+        cv2.rectangle(img, button.pos, (x + w, y + h), button_color, cv2.FILLED)
 
         # Set font properties
         font = cv2.FONT_HERSHEY_PLAIN
-        font_scale = 1.8  # smaller scale
+        font_scale = 1.8
         thickness = 2
 
         # Measure text size
@@ -103,6 +110,7 @@ def drawAll(img, buttonList):
                     font, font_scale, (255, 255, 255), thickness)
 
     return img
+
 
     
 """
@@ -183,7 +191,7 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 """
-caps_on = False  # Global state for CAPS
+
 type_action = False  # To avoid double triggering
 # use global variable for caps_on to keep track of the state
 # Main loop
@@ -289,9 +297,9 @@ while True:
                     sleep(0.4)  # slight delay to avoid rapid multiple presses
 
     # Draw text box for typed characters
-    cv2.rectangle(canvas, (50, 650), (1280, 720), (175, 0, 175), cv2.FILLED)
-    cv2.putText(canvas, finalText, (60, 700),
-                cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+    #cv2.rectangle(canvas, (50, 650), (1280, 720), (175, 0, 175), cv2.FILLED)
+    #cv2.putText(canvas, finalText, (60, 700),
+    #           cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
 
     cv2.imshow("Virtual Keyboard", canvas)
     if cv2.waitKey(1) & 0xFF == ord('q'):
