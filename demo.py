@@ -20,6 +20,7 @@ height = cap.get(4)
 # Hand Detector
 detector = HandDetector(detectionCon=0.8)
 caps_on = False  # Global state for CAPS
+fn_on = False  # Global state for Fn
 
 # Virtual Keyboard layout (Keychron K6-like)
 keys = [
@@ -74,7 +75,13 @@ buttonList.append(Button([lastButtonX + 65, arrowY], "Dn", arrow_size))
 buttonList.append(Button([lastButtonX + 130, arrowY], "Rt", arrow_size))
 
 
-
+def special_key_pressed(button, special_key, key_status):  
+    if button.text == special_key and key_status:
+        button_color = (0, 255, 0)  # Green if special key status is active
+    else:
+        button_color = (255, 0, 255)  # Regular purple when not pressed
+    return button_color
+    
 
 # Draw all buttons
 def drawAll(img, buttonList):
@@ -82,12 +89,17 @@ def drawAll(img, buttonList):
         x, y = button.pos
         w, h = button.size
 
-        # If this is the CAPS button and caps_on is True, change color
-        if button.text == "CAPS" and caps_on:
-            button_color = (0, 255, 0)  # Green if CAPS is active
-        else:
-            button_color = (255, 0, 255)  # Regular purple
+        # Default color
+        button_color = (255, 0, 255)
 
+        # Check CAPS status
+        if special_key_pressed(button, "CAPS", caps_on) == (0, 255, 0):
+            button_color = (0, 255, 0)
+
+        # Check Fn status
+        if special_key_pressed(button, "Fn", fn_on) == (0, 255, 0):
+            button_color = (0, 255, 0)
+        
         # Draw button box
         cvzone.cornerRect(img, (x, y, w, h), 20, rt=0)
         cv2.rectangle(img, button.pos, (x + w, y + h), button_color, cv2.FILLED)
@@ -197,36 +209,42 @@ type_action = False  # To avoid double triggering
 
 # Function to handle special keys
 # This function handles the special keys like SPACE, ENTER, TAB, DEL, ESC, and CAPS
-def handle_special_key(key_pressed, keyboard, finalText, caps_on):
+def handle_special_key(key_pressed, keyboard, finalText, caps_on, fn_on):
+    # Define functions for each special key
     def press_space():
         keyboard.press(Key.space)
         print("SPACE pressed")
-        return finalText + " ", caps_on
+        return finalText + " ", caps_on, fn_on
 
     def press_enter():
         keyboard.press(Key.enter)
         print("ENTER pressed")
-        return finalText + "\n", caps_on
+        return finalText + "\n", caps_on, fn_on
 
     def press_tab():
         keyboard.press(Key.tab)
         print("TAB pressed")
-        return finalText + "    ", caps_on
-
+        return finalText + "    ", caps_on, fn_on
     def press_del():
         keyboard.press(Key.backspace)
         print("DEL pressed")
-        return finalText[:-1], caps_on
+        return finalText[:-1], caps_on, fn_on
 
     def press_esc():
         keyboard.press(Key.esc)
-        return finalText, caps_on
+        return finalText, caps_on, fn_on
 
     def toggle_caps():
         new_caps = not caps_on
         print(f"CAPS {'ON' if new_caps else 'OFF'}")
         sleep(0.4)
-        return finalText, new_caps
+        return finalText, new_caps, fn_on
+    
+    def toggle_fn():
+        new_fn = not fn_on
+        print(f"Fn {'ON' if new_fn else 'OFF'}")
+        sleep(0.4)
+        return finalText,caps_on, new_fn
 
     # Map key text to their actions
     special_key_actions = {
@@ -236,6 +254,7 @@ def handle_special_key(key_pressed, keyboard, finalText, caps_on):
         "DEL": press_del,
         "ESC": press_esc,
         "CAPS": toggle_caps,
+        "Fn": toggle_fn
     }
 
     # Execute if key_pressed is in special keys
@@ -243,11 +262,11 @@ def handle_special_key(key_pressed, keyboard, finalText, caps_on):
         return special_key_actions[key_pressed]()
     
     # If not a special key, return unchanged values
-    return finalText, caps_on
+    return finalText, caps_on, fn_on
 
 # Function to process hand input
 # This function processes the hand input and checks if the index finger is hovering over a button
-def process_hand_input(hands, canvas, buttonList, keyboard, caps_on, type_action, finalText, distance_comp=40):
+def process_hand_input(hands, canvas, buttonList, keyboard, caps_on, fn_on, type_action, finalText, distance_comp=40):
     if hands:
         hand = hands[0]
         lmList = hand["lmList"]
@@ -278,8 +297,8 @@ def process_hand_input(hands, canvas, buttonList, keyboard, caps_on, type_action
                     key_pressed = button.text
 
                     # Handle special keys
-                    if key_pressed in ["SPACE", "ENTER", "TAB", "DEL", "ESC", "CAPS"]:
-                        finalText, caps_on = handle_special_key(key_pressed, keyboard, finalText, caps_on)
+                    if key_pressed in ["SPACE", "ENTER", "TAB", "DEL", "ESC", "CAPS", "Fn"]:
+                        finalText, caps_on, fn_on = handle_special_key(key_pressed, keyboard, finalText, caps_on, fn_on)
                     else:
                         if len(key_pressed) == 1:
                             char_to_type = key_pressed
@@ -300,7 +319,7 @@ def process_hand_input(hands, canvas, buttonList, keyboard, caps_on, type_action
                                 cv2.FONT_HERSHEY_PLAIN, 2.5, (255, 255, 255), 3)
 
                     sleep(0.4)
-    return canvas, caps_on, type_action, finalText
+    return canvas, caps_on, fn_on, type_action, finalText
 
 # Main loop
 
@@ -315,13 +334,12 @@ while True:
     canvas[0:img.shape[0], 0:img.shape[1]] = img
 
 # Draw your keyboard on canvas now
-    #canvas = drawAll(canvas, buttonList)
     hands, canvas = detector.findHands(img)
-
+    # Draw all buttons
     canvas = drawAll(canvas, buttonList)
 
-    canvas, caps_on, type_action, finalText = process_hand_input(
-    hands, canvas, buttonList, keyboard, caps_on, type_action, finalText)
+    canvas, caps_on, fn_on, type_action, finalText = process_hand_input(
+    hands, canvas, buttonList, keyboard, caps_on, fn_on, type_action, finalText)
 
     # Draw text box for typed characters
     #cv2.rectangle(canvas, (50, 650), (1280, 720), (175, 0, 175), cv2.FILLED)
