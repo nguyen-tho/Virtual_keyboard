@@ -14,9 +14,7 @@ os.system("start notepad.exe")
 cap = cv2.VideoCapture(0)
 cap.set(3, 1280)
 cap.set(4, 720)
-
-width = cap.get(3)
-height = cap.get(4)
+# Set the resolution to 1280x720
 # Hand Detector
 detector = HandDetector(detectionCon=0.8)
 caps_on = False  # Global state for CAPS
@@ -47,33 +45,40 @@ class Button():
 # based on key type
 # Horizontal offset between keys
 # Vertical offset between rows
-buttonList = []
-startY = 10
+def keyboardLayout(keys):
+    buttonList = []
+    startY = 10
 
-for i in range(len(keys)):
-    startX = 10
-    for key in keys[i]:
-        if key == "SPACE":
-            size = [250, 60]
-        elif key in ["SHIFT", "ENTER", "CAPS", "TAB", "CMD", "CTRL", "ALT", "DEL", "ESC", "Fn", "Win"]:
-            size = [90, 60]
-        else:
-            size = [60, 60]
+    for i in range(len(keys)):
+        startX = 10
+        for key in keys[i]:
+            if key == "SPACE":
+                size = [250, 60]
+            elif key in ["SHIFT", "ENTER", "CAPS", "TAB", "CMD", "CTRL", "ALT", "DEL", "ESC", "Fn", "Win"]:
+                size = [90, 60]
+            else:
+                size = [60, 60]
 
-        buttonList.append(Button([startX, startY], key, size))
-        startX += size[0] + 5
-    startY += 100
+            buttonList.append(Button([startX, startY], key, size))
+            startX += size[0] + 5
+        startY += 100
 
 # Get last button’s X pos for arrow keys starting point
-lastButtonX = buttonList[-1].pos[0] + buttonList[-1].size[0] + 5
-arrowY = startY - 100  # same Y as bottom row
+    lastButtonX = buttonList[-1].pos[0] + buttonList[-1].size[0] + 5
+    arrowY = startY - 100  # same Y as bottom row
 
-arrow_size = [60, 60]
-buttonList.append(Button([lastButtonX, arrowY], "Lt", arrow_size))
-buttonList.append(Button([lastButtonX + 65, arrowY - 70], "Up", arrow_size))  # Up button above
-buttonList.append(Button([lastButtonX + 65, arrowY], "Dn", arrow_size))
-buttonList.append(Button([lastButtonX + 130, arrowY], "Rt", arrow_size))
+    arrow_size = [60, 60]
+    buttonList.append(Button([lastButtonX, arrowY], "Lt", arrow_size))
+    buttonList.append(Button([lastButtonX + 65, arrowY - 70], "Up", arrow_size))  # Up button above
+    buttonList.append(Button([lastButtonX + 65, arrowY], "Dn", arrow_size))
+    buttonList.append(Button([lastButtonX + 130, arrowY], "Rt", arrow_size))
+    
+    return buttonList
 
+# Create button list
+buttonList = keyboardLayout(keys)
+# Function to check if special key is pressed
+# This function checks if a special key is pressed and returns the button color
 
 def special_key_pressed(button, special_key, key_status):  
     if button.text == special_key and key_status:
@@ -338,8 +343,8 @@ while True:
     # Draw all buttons
     canvas = drawAll(canvas, buttonList)
 
-    canvas, caps_on, fn_on, type_action, finalText = process_hand_input(
-    hands, canvas, buttonList, keyboard, caps_on, fn_on, type_action, finalText)
+    canvas, caps_on, fn_on, type_action, finalText = process_hand_input(hands, canvas, buttonList, 
+                                                                        keyboard, caps_on, fn_on, type_action, finalText)
 
     # Draw text box for typed characters
     #cv2.rectangle(canvas, (50, 650), (1280, 720), (175, 0, 175), cv2.FILLED)
