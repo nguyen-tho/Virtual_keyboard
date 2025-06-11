@@ -29,7 +29,8 @@ keys = [
     ["CTRL", "Fn", "ALT", "Win", "SPACE", "CMD", "ALT", "CTRL"]
 ]
 
-finalText = ""
+finalText = """
+    """
 
 # Virtual keyboard controller
 keyboard = Controller()
@@ -47,10 +48,11 @@ class Button():
 # Vertical offset between rows
 def keyboardLayout(keys):
     buttonList = []
-    startY = 10
+    startY = 50
 
     for i in range(len(keys)):
-        startX = 10
+        startX = 50  # Reset startX for each row
+        # Adjust startX for the first row
         for key in keys[i]:
             if key == "SPACE":
                 size = [250, 60]
@@ -250,6 +252,26 @@ def handle_special_key(key_pressed, keyboard, finalText, caps_on, fn_on):
         print(f"Fn {'ON' if new_fn else 'OFF'}")
         sleep(0.4)
         return finalText,caps_on, new_fn
+    
+    def cmd_pressed():
+        keyboard.press(Key.cmd)
+        print("CMD pressed")
+        return finalText, caps_on, fn_on
+    
+    def press_arrow(direction):
+        if direction == "Lt":
+            keyboard.press(Key.left)
+            print("Left Arrow pressed")
+        elif direction == "Rt":
+            keyboard.press(Key.right)
+            print("Right Arrow pressed")
+        elif direction == "Up":
+            keyboard.press(Key.up)
+            print("Up Arrow pressed")
+        elif direction == "Dn":
+            keyboard.press(Key.down)
+            print("Down Arrow pressed")
+        return finalText, caps_on, fn_on
 
     # Map key text to their actions
     special_key_actions = {
@@ -259,12 +281,22 @@ def handle_special_key(key_pressed, keyboard, finalText, caps_on, fn_on):
         "DEL": press_del,
         "ESC": press_esc,
         "CAPS": toggle_caps,
-        "Fn": toggle_fn
+        "Fn": toggle_fn,
+        "CMD": cmd_pressed,
     }
-
-    # Execute if key_pressed is in special keys
-    if key_pressed in special_key_actions:
-        return special_key_actions[key_pressed]()
+    # List of arrow keys
+    arrow_keys = ["Lt", "Rt", "Up", "Dn"]
+    # Check if the key_pressed is an arrow key
+    if key_pressed in arrow_keys:
+        finalText, caps_on, fn_on = press_arrow(key_pressed)
+    # Check if the key_pressed is a special key
+    elif key_pressed in special_key_actions:
+        finalText, caps_on, fn_on = special_key_actions[key_pressed]()
+    else:
+        # If the key is not a special key, just return the current state
+        print(f"Key '{key_pressed}' pressed but not handled as a special key.")
+        sleep(0.4)
+   
     
     # If not a special key, return unchanged values
     return finalText, caps_on, fn_on
